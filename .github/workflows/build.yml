@@ -1,0 +1,36 @@
+
+name: Build ARP Simulator
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compile Java source files
+        run: javac -d out src/main/java/*.java
+
+      - name: Package simulator into JAR
+        run: jar --create --file ARP-Simulator.jar --main-class ARPSimulator -C out .
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ARP-Simulator
+          path: ARP-Simulator.jar
+          if-no-files-found: error
