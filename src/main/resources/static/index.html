@@ -1,0 +1,237 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1120">
+    <title>ARP Request–Reply Simulator</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/script.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon">ARP</div>
+            <div>
+                <h1>ARP Simulator</h1>
+                <p>Request · Reply · Cache Management</p>
+            </div>
+        </div>
+        <span class="status"><span class="status-dot"></span> Local server</span>
+    </header>
+
+    <main class="container">
+        <section class="welcome">
+            <div>
+                <p class="eyebrow">COMPUTER NETWORKS PROJECT</p>
+                <h2>Network Control Center</h2>
+                <p>Simulate Address Resolution Protocol requests and replies.</p>
+            </div>
+            <button id="refreshButton" class="button secondary" type="button">
+                ↻ Refresh Dashboard
+            </button>
+        </section>
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <span class="stat-label">ARP Requests</span>
+                <strong id="requests">0</strong>
+                <span class="stat-note">Broadcast requests</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">ARP Replies</span>
+                <strong id="replies">0</strong>
+                <span class="stat-note">Replies generated</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">Cache Hits</span>
+                <strong id="hits">0</strong>
+                <span class="stat-note">Resolved from cache</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">Cache Misses</span>
+                <strong id="misses">0</strong>
+                <span class="stat-note">Required a request</span>
+            </article>
+            <article class="stat-card">
+                <span class="stat-label">Failed Resolutions</span>
+                <strong id="failures">0</strong>
+                <span class="stat-note">Unresolved addresses</span>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">NETWORK TOPOLOGY</p>
+                    <h2>Connected Devices</h2>
+                </div>
+                <span id="deviceCount" class="pill">0 devices</span>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device Name</th>
+                            <th>IPv4 Address</th>
+                            <th>MAC Address</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTable"></tbody>
+                </table>
+            </div>
+            <p class="hint">The simulator supports between 2 and 5 devices.</p>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">DEVICE CONFIGURATION</p>
+            <h2>Device Management</h2>
+            <p class="panel-description">
+                Add a device or select an existing device to edit or remove.
+            </p>
+
+            <form id="deviceForm">
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="deviceName">Device Name</label>
+                        <input id="deviceName" type="text"
+                               placeholder="e.g. Device 3" required maxlength="60">
+                    </div>
+                    <div class="field">
+                        <label for="deviceIP">IPv4 Address</label>
+                        <input id="deviceIP" type="text"
+                               placeholder="192.168.1.30" required>
+                    </div>
+                    <div class="field">
+                        <label for="deviceMAC">MAC Address</label>
+                        <input id="deviceMAC" type="text"
+                               placeholder="00:CC:00:11:22:33" required>
+                    </div>
+                    <div class="field">
+                        <label for="editDevice">Select Device</label>
+                        <select id="editDevice">
+                            <option value="">Choose a device</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button class="button primary" id="addDeviceButton" type="submit">
+                        + Add Device
+                    </button>
+                    <button class="button success" id="editDeviceButton" type="button">
+                        Save Changes
+                    </button>
+                    <button class="button danger" id="removeDeviceButton" type="button">
+                        Remove Device
+                    </button>
+                    <button class="button secondary" id="clearDeviceFormButton" type="button">
+                        Clear Form
+                    </button>
+                </div>
+            </form>
+            <p id="deviceMessage" class="message" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">ADDRESS RESOLUTION</p>
+            <h2>Simulate ARP Request–Reply</h2>
+            <p class="panel-description">
+                Choose a sender and enter the target device's IP address.
+            </p>
+
+            <div class="form-grid">
+                <div class="field">
+                    <label for="sender">Sender Device</label>
+                    <select id="sender"></select>
+                </div>
+                <div class="field">
+                    <label for="target">Target IPv4 Address</label>
+                    <input id="target" type="text" placeholder="192.168.1.20">
+                </div>
+            </div>
+
+            <div class="button-row">
+                <button id="resolveButton" class="button primary" type="button">
+                    Resolve Address
+                </button>
+            </div>
+            <div id="resolveResult" class="result-box" role="status" aria-live="polite">
+                Ready to simulate ARP.
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">ADDRESS CACHE</p>
+                    <h2>ARP Cache Viewer</h2>
+                </div>
+            </div>
+
+            <div class="field cache-selector">
+                <label for="cacheDevice">View cache for</label>
+                <select id="cacheDevice"></select>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>IPv4 Address</th>
+                            <th>MAC Address</th>
+                            <th>Entry Age</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cacheTable"></tbody>
+                </table>
+            </div>
+            <div class="button-row">
+                <button id="clearCacheButton" class="button danger" type="button">
+                    Clear All ARP Caches
+                </button>
+            </div>
+            <p id="cacheMessage" class="message" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel">
+            <p class="eyebrow">CACHE CONFIGURATION</p>
+            <h2>Time to Live (TTL)</h2>
+            <p class="panel-description">
+                Configure how long a cached address remains valid.
+            </p>
+
+            <div class="ttl-row">
+                <div class="field">
+                    <label for="ttlInput">TTL in seconds (5–3600)</label>
+                    <input id="ttlInput" type="number" min="5" max="3600" value="60">
+                </div>
+                <button id="saveTTLButton" class="button primary" type="button">
+                    Save TTL
+                </button>
+            </div>
+            <p id="cacheConfigMessage" class="message" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">SIMULATION HISTORY</p>
+                    <h2>Event Log</h2>
+                </div>
+                <button id="resetStatsButton" class="button secondary" type="button">
+                    Reset Statistics
+                </button>
+            </div>
+            <pre id="eventLog" class="event-log">Loading events...</pre>
+        </section>
+
+        <footer>
+            <p>ARP Request–Reply and ARP Cache Simulator</p>
+            <p>Java · HTTP Server · HTML · CSS · JavaScript</p>
+        </footer>
+    </main>
+</body>
+</html>
