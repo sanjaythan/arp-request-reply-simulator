@@ -66,4 +66,4 @@ This project is a logical simulation of ARP behavior. It does not transmit actua
 
 ## Authors
 
-Sanjay Thandeeswaran and project contributors.
+Sanjay Thandeeswaran, Monish Kumar T O and Jayanth Priyatharsan P T
