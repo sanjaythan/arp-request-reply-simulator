@@ -16,16 +16,21 @@ import java.util.concurrent.Executors;
 
 public class ARPWebServer {
 
-    private static final int PORT = 8080;
+    private static final int DEFAULT_PORT = 8080;
     private static final ARPManager manager = new ARPManager();
 
     public static void main(String[] args) throws IOException {
+
+        int port = Integer.parseInt(
+                System.getenv().getOrDefault("PORT",
+                        String.valueOf(DEFAULT_PORT)));
+
         HttpServer server = HttpServer.create(
-                new InetSocketAddress("127.0.0.1", PORT), 0);
+                new InetSocketAddress("0.0.0.0", port), 0);
 
         server.setExecutor(Executors.newCachedThreadPool());
 
-        // List network devices
+        // 1. List network devices
         server.createContext("/api/devices", exchange -> {
             if (!requireMethod(exchange, "GET")) return;
 
@@ -49,32 +54,37 @@ public class ARPWebServer {
             sendJson(exchange, 200, json.toString());
         });
 
-        // Add a device
+        // 2. Add a device
         server.createContext("/api/devices/add", exchange -> {
             if (!requireMethod(exchange, "POST")) return;
 
             Map<String, String> form = readForm(exchange);
-            boolean success = manager.addDevice(
-                    form.get("name"), form.get("ip"), form.get("mac"));
 
-            if (success) {
-                sendJson(exchange, 200, result(true, "Device added successfully."));
-            } else {
-                sendJson(exchange, 400, result(false,
-                        "Could not add device. Check the event log for details."));
-            }
+            boolean success = manager.addDevice(
+                    form.get("name"),
+                    form.get("ip"),
+                    form.get("mac"));
+
+            sendJson(exchange, success ? 200 : 400,
+                    result(success, success
+                            ? "Device added successfully."
+                            : "Could not add device. Check the event log."));
         });
 
-        // Edit a device
+        // 3. Edit a device
         server.createContext("/api/devices/edit", exchange -> {
             if (!requireMethod(exchange, "POST")) return;
 
             try {
                 Map<String, String> form = readForm(exchange);
-                int index = Integer.parseInt(form.getOrDefault("index", "-1"));
+                int index = Integer.parseInt(
+                        form.getOrDefault("index", "-1"));
 
                 boolean success = manager.updateDevice(
-                        index, form.get("name"), form.get("ip"), form.get("mac"));
+                        index,
+                        form.get("name"),
+                        form.get("ip"),
+                        form.get("mac"));
 
                 sendJson(exchange, success ? 200 : 400,
                         result(success, success
@@ -86,13 +96,14 @@ public class ARPWebServer {
             }
         });
 
-        // Remove a device
+        // 4. Remove a device
         server.createContext("/api/devices/remove", exchange -> {
             if (!requireMethod(exchange, "POST")) return;
 
             try {
                 Map<String, String> form = readForm(exchange);
-                int index = Integer.parseInt(form.getOrDefault("index", "-1"));
+                int index = Integer.parseInt(
+                        form.getOrDefault("index", "-1"));
 
                 boolean success = manager.removeDevice(index);
 
@@ -106,16 +117,17 @@ public class ARPWebServer {
             }
         });
 
-        // Resolve an IP address using ARP
+        // 5. Resolve an IP address using ARP
         server.createContext("/api/resolve", exchange -> {
             if (!requireMethod(exchange, "POST")) return;
 
             try {
                 Map<String, String> form = readForm(exchange);
+
                 int senderIndex = Integer.parseInt(
                         form.getOrDefault("senderIndex", "-1"));
-                String targetIP = form.getOrDefault("targetIP", "").trim();
 
+                String targetIP = form.getOrDefault("targetIP", "").trim();
                 List<NetworkDevice> devices = manager.getDevices();
 
                 if (senderIndex < 0 || senderIndex >= devices.size()) {
@@ -142,13 +154,14 @@ public class ARPWebServer {
                             "{\"success\":true,\"mac\":\"" + escape(mac)
                             + "\",\"message\":\"MAC address resolved successfully.\"}");
                 }
+
             } catch (Exception e) {
                 sendJson(exchange, 400,
                         result(false, "Invalid resolution request."));
             }
         });
 
-        // Read network statistics
+        // 6. Read network statistics
         server.createContext("/api/stats", exchange -> {
             if (!requireMethod(exchange, "GET")) return;
 
@@ -165,16 +178,17 @@ public class ARPWebServer {
             sendJson(exchange, 200, json);
         });
 
-        // Reset network statistics
+        // 7. Reset network statistics
         server.createContext("/api/stats/reset", exchange -> {
             if (!requireMethod(exchange, "POST")) return;
 
             manager.resetStatistics();
+
             sendJson(exchange, 200,
                     result(true, "Network statistics reset."));
         });
 
-        // View a device's ARP cache
+        // 8. View a device's ARP cache
         server.createContext("/api/cache", exchange -> {
             if (!requireMethod(exchange, "GET")) return;
 
@@ -192,14 +206,16 @@ public class ARPWebServer {
                 }
 
                 ARPCache cache = manager.getCacheForDevice(index);
+
+                // Remove expired entries before displaying the cache.
                 Map<String, ARPEntry> entries = cache.getEntries();
 
-                // lookup() also removes an expired entry.
                 for (String ip : entries.keySet()) {
                     cache.lookup(ip, manager.getTTL());
                 }
 
                 entries = cache.getEntries();
+
                 StringBuilder json = new StringBuilder("[");
                 boolean first = true;
 
@@ -208,7 +224,8 @@ public class ARPWebServer {
                     first = false;
 
                     long age = Math.max(0,
-                            (System.currentTimeMillis() - entry.getCreatedAt()) / 1000);
+                            (System.currentTimeMillis()
+                            - entry.getCreatedAt()) / 1000);
 
                     json.append("{")
                         .append("\"ip\":\"").append(escape(entry.getIpAddress())).append("\",")
@@ -226,16 +243,17 @@ public class ARPWebServer {
             }
         });
 
-        // Clear all ARP caches
+        // 9. Clear all ARP caches
         server.createContext("/api/cache/clear", exchange -> {
             if (!requireMethod(exchange, "POST")) return;
 
             manager.clearAllCaches();
+
             sendJson(exchange, 200,
                     result(true, "All ARP caches cleared."));
         });
 
-        // Read the event log
+        // 10. Read the event log
         server.createContext("/api/events", exchange -> {
             if (!requireMethod(exchange, "GET")) return;
 
@@ -251,8 +269,9 @@ public class ARPWebServer {
             sendJson(exchange, 200, json.toString());
         });
 
-        // Get or configure cache TTL
+        // 11. Get or configure cache TTL
         server.createContext("/api/ttl", exchange -> {
+
             if (exchange.getRequestMethod().equalsIgnoreCase("GET")) {
                 sendJson(exchange, 200,
                         "{\"ttlSeconds\":" + manager.getTTL() + "}");
@@ -263,13 +282,15 @@ public class ARPWebServer {
 
             try {
                 Map<String, String> form = readForm(exchange);
+
                 int ttl = Integer.parseInt(
                         form.getOrDefault("ttlSeconds", ""));
 
                 manager.setTTL(ttl);
 
                 sendJson(exchange, 200,
-                        "{\"success\":true,\"message\":\"TTL updated successfully.\","
+                        "{\"success\":true,"
+                        + "\"message\":\"TTL updated successfully.\","
                         + "\"ttlSeconds\":" + manager.getTTL() + "}");
 
             } catch (NumberFormatException e) {
@@ -281,7 +302,7 @@ public class ARPWebServer {
             }
         });
 
-        // Serve the frontend
+        // 12. Serve the HTML, CSS and JavaScript files
         Path webRoot = Path.of(
                 "src", "main", "resources", "static")
                 .toAbsolutePath().normalize();
@@ -294,7 +315,9 @@ public class ARPWebServer {
                 return;
             }
 
-            if (requestPath.equals("/")) requestPath = "/index.html";
+            if (requestPath.equals("/")) {
+                requestPath = "/index.html";
+            }
 
             Path file = webRoot.resolve(requestPath.substring(1)).normalize();
 
@@ -319,50 +342,66 @@ public class ARPWebServer {
 
         System.out.println("==================================");
         System.out.println(" ARP Simulator Web Server Started");
-        System.out.println(" URL: http://localhost:" + PORT);
+        System.out.println(" Listening on port: " + port);
         System.out.println(" Press Ctrl+C to stop the server");
         System.out.println("==================================");
     }
 
+    // Check the HTTP method.
     private static boolean requireMethod(
             HttpExchange exchange, String method) throws IOException {
+
         if (!exchange.getRequestMethod().equalsIgnoreCase(method)) {
             exchange.getResponseHeaders().set("Allow", method);
             sendText(exchange, 405, "Method not allowed.");
             return false;
         }
+
         return true;
     }
 
+    // Read form data sent by the frontend.
     private static Map<String, String> readForm(
             HttpExchange exchange) throws IOException {
+
         String body = new String(
                 exchange.getRequestBody().readAllBytes(),
                 StandardCharsets.UTF_8);
+
         return parseForm(body);
     }
 
+    // Parse URL-encoded form data.
     private static Map<String, String> parseForm(String input) {
         Map<String, String> map = new HashMap<>();
-        if (input == null || input.isEmpty()) return map;
+
+        if (input == null || input.isEmpty()) {
+            return map;
+        }
 
         for (String pair : input.split("&")) {
             String[] parts = pair.split("=", 2);
-            String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
+
+            String key = URLDecoder.decode(
+                    parts[0], StandardCharsets.UTF_8);
+
             String value = parts.length > 1
                     ? URLDecoder.decode(parts[1], StandardCharsets.UTF_8)
                     : "";
+
             map.put(key, value);
         }
 
         return map;
     }
 
+    // Build a JSON result object.
     private static String result(boolean success, String message) {
         return "{\"success\":" + success
                 + ",\"message\":\"" + escape(message) + "\"}";
     }
 
+    // Escape strings safely for JSON responses.
     private static String escape(String value) {
         if (value == null) return "";
 
@@ -392,13 +431,16 @@ public class ARPWebServer {
         return out.toString();
     }
 
+    // Send JSON data to the browser.
     private static void sendJson(
             HttpExchange exchange, int status, String json) throws IOException {
+
         exchange.getResponseHeaders().set(
                 "Content-Type", "application/json; charset=UTF-8");
         exchange.getResponseHeaders().set("Cache-Control", "no-store");
 
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+
         exchange.sendResponseHeaders(status, bytes.length);
 
         try (OutputStream out = exchange.getResponseBody()) {
@@ -406,12 +448,15 @@ public class ARPWebServer {
         }
     }
 
+    // Send plain text responses.
     private static void sendText(
             HttpExchange exchange, int status, String message) throws IOException {
+
         byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
 
         exchange.getResponseHeaders().set(
                 "Content-Type", "text/plain; charset=UTF-8");
+
         exchange.sendResponseHeaders(status, bytes.length);
 
         try (OutputStream out = exchange.getResponseBody()) {
@@ -419,12 +464,22 @@ public class ARPWebServer {
         }
     }
 
+    // Detect the correct content type for static files.
     private static String getContentType(Path file) {
         String name = file.getFileName().toString().toLowerCase();
 
-        if (name.endsWith(".html")) return "text/html; charset=UTF-8";
-        if (name.endsWith(".css")) return "text/css; charset=UTF-8";
-        if (name.endsWith(".js")) return "application/javascript; charset=UTF-8";
+        if (name.endsWith(".html")) {
+            return "text/html; charset=UTF-8";
+        }
+
+        if (name.endsWith(".css")) {
+            return "text/css; charset=UTF-8";
+        }
+
+        if (name.endsWith(".js")) {
+            return "application/javascript; charset=UTF-8";
+        }
+
         return "application/octet-stream";
     }
 }
